@@ -468,11 +468,19 @@
         }
 
         .shuttlecock {
-            width: 20px;
-            height: 20px;
+            width: 60px;  /* 從 20px 改為 60px */
+            height: 60px; /* 從 20px 改為 60px */
             position: absolute;
             z-index: 30;
             transition: transform 0.2s ease;
+        }
+
+        #shuttlecockCanvas {
+            width: 100%;
+            height: 100%;
+            position: absolute;
+            top: 0;
+            left: 0;
         }
 
         .cork {
@@ -1235,19 +1243,8 @@
         </div>
 
         <div class="shuttlecock" id="shuttlecock" style="left: 1051.36px; top: 640px; transform: scale(0.946667);">
-            <div class="cork"></div>
-            <div class="feathers">
-                <div class="feather" style="transform: rotate(0deg) translateY(-6px);"></div>
-                <div class="feather" style="transform: rotate(45deg) translateY(-6px);"></div>
-                <div class="feather" style="transform: rotate(90deg) translateY(-6px);"></div>
-                <div class="feather" style="transform: rotate(135deg) translateY(-6px);"></div>
-                <div class="feather" style="transform: rotate(180deg) translateY(-6px);"></div>
-                <div class="feather" style="transform: rotate(225deg) translateY(-6px);"></div>
-                <div class="feather" style="transform: rotate(270deg) translateY(-6px);"></div>
-                <div class="feather" style="transform: rotate(315deg) translateY(-6px);"></div>
-            </div>
-            <div class="shadow" id="shuttlecock-shadow"
-                style="bottom: -30px; left: -5px; opacity: 0.875556; transform: scale(1.42);"></div>
+            <canvas id="shuttlecockCanvas" width="60" height="60"></canvas>
+            <div class="shadow" id="shuttlecock-shadow" style="bottom: -30px; left: -5px; opacity: 0.875556; transform: scale(1.42);"></div>
         </div>
 
         <div class="hit-effect" id="hit-effect" style="left: 1148.96px; top: 620px;"></div>
@@ -1425,7 +1422,8 @@
                 currentServer: 'player', // 初始發球者
                 difficulty: 'medium',
                 rallyCount: 0, // 記錄回合數
-                consecutiveHits: 0 // 連續擊球次數
+                consecutiveHits: 0, // 連續擊球次數
+                shuttlecockRotation: Math.PI / 4, // 初始旋轉角度
             };
 
             // 更新對手大小
@@ -1551,29 +1549,29 @@
                 gameState.serveReady = true;
                 gameState.isShuttlecockMoving = false;
                 gameState.consecutiveHits = 0;
-
+                
                 // 根據發球方設置球的位置
                 if (gameState.currentServer === 'player') {
                     // 玩家發球
                     gameState.shuttlecockX = gameState.playerX + 40;
                     gameState.shuttlecockY = gameState.playerY - 30;
                     gameState.shuttlecockHeight = 20;
-
+                    
                     // 顯示發球提示和按鈕
                     serveIndicator.textContent = "輪到你發球！按空格鍵或點擊發球按鈕";
                     serveIndicator.style.display = 'block';
                     serveBtn.style.display = 'block';
                 } else {
-                    // 對手發球
+                    // 對手發球 - 修正發球位置
                     gameState.shuttlecockX = gameState.opponentX + 40;
-                    gameState.shuttlecockY = gameState.opponentY + 80;
-                    gameState.shuttlecockHeight = 20;
-
+                    gameState.shuttlecockY = gameState.opponentY + 60; // 調整為從對手位置發球
+                    gameState.shuttlecockHeight = 0; // 設為 0 表示球在對手手上
+                    
                     // 顯示發球提示
                     serveIndicator.textContent = "對手準備發球";
                     serveIndicator.style.display = 'block';
                     serveBtn.style.display = 'none';
-
+                    
                     // 對手延遲發球
                     setTimeout(() => {
                         if (gameState.isServing && gameState.currentServer === 'opponent') {
@@ -1581,7 +1579,7 @@
                         }
                     }, 1500);
                 }
-
+                
                 updateShuttlecockPosition();
             }
 
@@ -1589,6 +1587,9 @@
             function serveByPlayer() {
                 if (!gameState.isServing || gameState.currentServer !== 'player') return;
 
+                // 設置初始旋轉角度（重心在右下）
+                gameState.shuttlecockRotation = Math.PI * 1.25;
+                
                 // 揮拍動畫
                 swingRacket(player, false);
 
@@ -1617,27 +1618,31 @@
             // 對手發球
             function serveByOpponent() {
                 if (!gameState.isServing || gameState.currentServer !== 'opponent') return;
-
+                
+                // 設置初始旋轉角度（重心在右上）
+                gameState.shuttlecockRotation = Math.PI * 0.25;
+                
                 // 揮拍動畫
                 swingRacket(opponent, true);
-
+                
                 // 顯示擊球特效
                 showHitEffect(gameState.shuttlecockX, gameState.shuttlecockY);
-
+                
                 // 發球
                 gameState.isServing = false;
-                gameState.serveReady = false;
+                gameState.serveReady = false; // 重置發球準備狀態
                 gameState.isShuttlecockMoving = true;
                 gameState.shuttlecockDirection = 1;
-
+                gameState.shuttlecockHeight = 20;
+                
                 // 根據難度調整發球質量
                 const settings = difficultySettings[gameState.difficulty];
                 if (Math.random() < settings.opponentSkillLevel) {
                     // 高質量發球 - 瞄準玩家不易接到的位置
-                    const targetX = gameState.playerX > courtWidth / 2 ?
-                        Math.random() * courtWidth * 0.3 :
+                    const targetX = gameState.playerX > courtWidth / 2 ? 
+                        Math.random() * courtWidth * 0.3 : 
                         courtWidth * 0.7 + Math.random() * courtWidth * 0.3;
-
+                    
                     const dx = targetX - gameState.shuttlecockX;
                     gameState.shuttlecockVelocityX = dx / (courtWidth * 0.1);
                     gameState.shuttlecockVelocityY = courtHeight * 0.01 + Math.random() * courtHeight * 0.005;
@@ -1646,13 +1651,13 @@
                     gameState.shuttlecockVelocityY = courtHeight * 0.01 + Math.random() * courtHeight * 0.005;
                     gameState.shuttlecockVelocityX = (Math.random() - 0.5) * courtWidth * 0.005;
                 }
-
+                
                 // 隱藏發球提示
                 serveIndicator.style.display = 'none';
-
+                
                 // 重置對手行為
                 resetOpponentBehavior();
-
+                
                 // 增加連續擊球次數
                 gameState.consecutiveHits++;
             }
@@ -1786,15 +1791,18 @@
             function updateShuttlecockPosition() {
                 shuttlecock.style.left = gameState.shuttlecockX + 'px';
                 shuttlecock.style.top = gameState.shuttlecockY + 'px';
-
+                
                 // 根據高度縮放羽毛球
                 const scale = 1 - (gameState.shuttlecockHeight / gameState.shuttlecockMaxHeight) * 0.3;
                 shuttlecock.style.transform = `scale(${scale})`;
-
+                
                 // 更新陰影位置
                 const shadowOffsetY = gameState.shuttlecockHeight * 0.3;
                 shuttlecockShadow.style.opacity = 1 - (gameState.shuttlecockHeight / gameState.shuttlecockMaxHeight) * 0.7;
                 shuttlecockShadow.style.transform = `scale(${scale * 1.5})`;
+
+                // 重新繪製羽毛球
+                drawShuttlecock();
             }
 
             // 揮拍動畫
@@ -1873,6 +1881,14 @@
                     gameState.shuttlecockVelocityX = (gameState.shuttlecockX - (gameState.playerX + 40)) / (courtWidth * 0.1);
                     gameState.shuttlecockHeight = 20;
 
+                    // 根據擊球方向設置旋轉角度
+                    const hitDirection = (gameState.shuttlecockX - (gameState.playerX + 40)) / (courtWidth * 0.1);
+                    if (hitDirection > 0) {
+                        gameState.shuttlecockRotation = Math.PI * 0.25; // 右上
+                    } else {
+                        gameState.shuttlecockRotation = Math.PI * 1.75; // 左上
+                    }
+
                     // 重置對手行為
                     resetOpponentBehavior();
 
@@ -1916,6 +1932,14 @@
                     }
 
                     gameState.shuttlecockHeight = 20;
+
+                    // 根據擊球方向設置旋轉角度
+                    const hitDirection = (gameState.shuttlecockX - (gameState.opponentX + 40)) / (courtWidth * 0.1);
+                    if (hitDirection > 0) {
+                        gameState.shuttlecockRotation = Math.PI * 1.25; // 右下
+                    } else {
+                        gameState.shuttlecockRotation = Math.PI * 0.75; // 左下
+                    }
 
                     // 增加連續擊球次數
                     gameState.consecutiveHits++;
@@ -1985,29 +2009,41 @@
                 if (gameState.isServing && gameState.currentServer === 'player') {
                     return;
                 }
+                
+                // 如果對手正在準備發球，保持靜止
+                if (gameState.isServing && gameState.currentServer === 'opponent' && gameState.serveReady) {
+                    return;
+                }
 
-                // 如果對手正在發球，移動到發球位置
-                if (gameState.isServing && gameState.currentServer === 'opponent') {
+                // 如果對手剛開始要發球，先移動到發球位置
+                if (gameState.isServing && gameState.currentServer === 'opponent' && !gameState.serveReady) {
                     const serveX = courtWidth / 2 - 40;
                     const serveY = courtHeight * 0.25 - 40;
-
+                    
                     // 移動到發球位置
                     const dx = serveX - gameState.opponentX;
                     const dy = serveY - gameState.opponentY;
                     const distance = Math.sqrt(dx * dx + dy * dy);
-
+                    
                     if (distance > 5) {
                         const moveX = dx / distance * gameState.opponentCurrentSpeed;
                         const moveY = dy / distance * gameState.opponentCurrentSpeed;
-
+                        
                         gameState.opponentX += moveX;
                         gameState.opponentY += moveY;
-
+                        
                         // 更新DOM
                         opponent.style.left = gameState.opponentX + 'px';
                         opponent.style.top = gameState.opponentY + 'px';
+                    } else {
+                        // 到達發球位置後，設置準備發球狀態
+                        gameState.serveReady = true;
+                        // 更新球的位置
+                        gameState.shuttlecockX = gameState.opponentX + 40;
+                        gameState.shuttlecockY = gameState.opponentY + 60;
+                        updateShuttlecockPosition();
                     }
-
+                    
                     return;
                 }
 
@@ -2107,19 +2143,24 @@
                 if (gameState.isServing && gameState.currentServer === 'player') {
                     // 限制在後場發球區
                     const minY = netY + (courtHeight - netY) * 0.5;
-
+                    
                     let moveX = 0;
                     let moveY = 0;
-
+                    
                     if (gameState.keys.ArrowLeft) moveX -= gameState.playerSpeed;
                     if (gameState.keys.ArrowRight) moveX += gameState.playerSpeed;
                     if (gameState.keys.ArrowUp) moveY -= gameState.playerSpeed;
                     if (gameState.keys.ArrowDown) moveY += gameState.playerSpeed;
 
+                    // 如果有任何移動，隱藏說明文字
+                    if (moveX !== 0 || moveY !== 0) {
+                        document.querySelector('.instructions').style.display = 'none';
+                    }
+                    
                     // 更新位置
                     gameState.playerX += moveX;
                     gameState.playerY += moveY;
-
+                    
                     // 限制在場地內和發球區
                     gameState.playerX = Math.max(0, Math.min(courtWidth - 80, gameState.playerX));
                     gameState.playerY = Math.max(minY, Math.min(courtHeight - 80, gameState.playerY));
@@ -2146,6 +2187,11 @@
                 if (gameState.keys.ArrowUp) moveY -= gameState.playerSpeed;
                 if (gameState.keys.ArrowDown) moveY += gameState.playerSpeed;
 
+                // 如果有任何移動，隱藏說明文字
+                if (moveX !== 0 || moveY !== 0) {
+                    document.querySelector('.instructions').style.display = 'none';
+                }
+                
                 // 更新位置
                 gameState.playerX += moveX;
                 gameState.playerY += moveY;
@@ -2296,6 +2342,75 @@
                     gameState.isFullscreen = true;
                 }
             }, { once: true });
+
+            // 在原本的初始化代碼前加入 Canvas 繪製函數
+            function drawShuttlecock() {
+                const canvas = document.getElementById('shuttlecockCanvas');
+                const ctx = canvas.getContext('2d');
+
+                // 清除畫布
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+                // 設定縮放比例以符合遊戲大小
+                const scale = 60/300;
+                ctx.scale(scale, scale);
+
+                // 移動畫布原點到適當位置
+                ctx.translate(150, 150);
+                
+                // 根據方向旋轉
+                ctx.rotate(gameState.shuttlecockRotation);
+
+                // 繪製羽毛部分（白色梯形區域）
+                ctx.beginPath();
+                ctx.moveTo(-25, 50);
+                ctx.lineTo(25, 50);
+                ctx.lineTo(50, 150);
+                ctx.lineTo(-50, 150);
+                ctx.closePath();
+                ctx.fillStyle = '#FFFFFF';
+                ctx.fill();
+
+                // 繪製羽毛部分的放射狀藍色線條
+                ctx.strokeStyle = '#00AEEF';
+                ctx.lineWidth = 2;
+
+                // 放射狀垂直線
+                for (let x = -20; x <= 20; x += 10) {
+                    ctx.beginPath();
+                    ctx.moveTo(x, 40);
+                    const bottomX = x * 2;
+                    ctx.lineTo(bottomX, 150);
+                    ctx.stroke();
+                }
+
+                // 放射狀水平線
+                for (let y = 70; y < 150; y += 20) {
+                    ctx.beginPath();
+                    const factor = (y - 40) / (150 - 40);
+                    const widthAtY = 25 + (50 - 25) * factor;
+                    ctx.moveTo(-widthAtY, y);
+                    ctx.lineTo(widthAtY, y);
+                    ctx.stroke();
+                }
+
+                // 繪製紅色條帶
+                ctx.fillStyle = '#FF0000';
+                ctx.fillRect(-25, 40, 50, 10);
+
+                // 繪製頂部半圓
+                ctx.beginPath();
+                ctx.arc(0, 40, 25, Math.PI, 0);
+                ctx.closePath();
+                ctx.fillStyle = '#FFFFFF';
+                ctx.fill();
+
+                // 重置變換
+                ctx.setTransform(1, 0, 0, 1, 0, 0);
+            }
+
+            // 在遊戲初始化時繪製羽毛球
+            drawShuttlecock();
         });
     </script>
     <script>(function () { function c() { var b = a.contentDocument || a.contentWindow.document; if (b) { var d = b.createElement('script'); d.innerHTML = "window.__CF$cv$params={r:'942a161487e9808e',t:'MTc0NzcyNTc4MS4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);"; b.getElementsByTagName('head')[0].appendChild(d) } } if (document.body) { var a = document.createElement('iframe'); a.height = 1; a.width = 1; a.style.position = 'absolute'; a.style.top = 0; a.style.left = 0; a.style.border = 'none'; a.style.visibility = 'hidden'; document.body.appendChild(a); if ('loading' !== document.readyState) c(); else if (window.addEventListener) document.addEventListener('DOMContentLoaded', c); else { var e = document.onreadystatechange || function () { }; document.onreadystatechange = function (b) { e(b); 'loading' !== document.readyState && (document.onreadystatechange = e, c()) } } } })();</script>
